@@ -19,7 +19,7 @@ $(document).ready(function() {
                 }
 	      },
 	      { data: "created_at", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1', render: function(data, type, row) {
-                  return new Date(data).toLocaleString(navigator.language, {12hour: false}); // Converts to local
+                  return new Date(data).toLocaleString(navigator.language, {"12hour": false});
                 }
 	      },
 	      { data: "topic", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1' },
