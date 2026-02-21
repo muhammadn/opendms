@@ -30,8 +30,8 @@ class DashboardController extends Controller
 
     public function timeline()
     {
-        $cluster = ClusterData::orderBy('id','desc')->first();
+        $clusters = ClusterData::orderBy('id','desc')->take(4)->get();
 	$count = ClusterData::count();
-	return response()->json(["data" => $cluster, "totalCount" => $count], 200);
+	return response()->json(["data" => $clusters, "totalCount" => $count], 200);
     }
 }

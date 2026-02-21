@@ -18,7 +18,10 @@ $(document).ready(function() {
                     return '<div class="font-medium text-white">' + data + '</div><div class="absolute -top-px left-6 right-0 h-px bg-white/10"></div>';
                 }
 	      },
-	      { data: "created_at", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1'},
+	      { data: "created_at", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1', render: function(data, type, row) {
+                  return new Date(data).toLocaleString(); // Converts to local
+                }
+	      },
 	      { data: "topic", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1' },
 	      { data: "message_id", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1' },
 	      { data: "path", defaultContent: "", className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1' },
@@ -60,17 +63,6 @@ $(document).ready(function() {
 	  // Clear the table body to refresh with all data, or just append new rows
 	  console.log('timeline is processing...');
 
-	  // Iterate over the received data and append rows to the table
-	  const date = new Date(data.data.created_at);
-	  const time24h = date.toLocaleTimeString('en-GB', { 
-	    hourCycle: 'h23', 
-	    hour: '2-digit', 
-            minute: '2-digit',
-	    second: '2-digit'
-  	  }); 
-
-	  let template = '<li><div class="relative pb-8"><div class="relative flex space-x-3"><div><img src="/images/logo.png" alt="Logo" class="size-10"></div><div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5"><div><p class="text-sm text-gray-400">' + data.data.payload + '<a href="#" class="font-medium text-white"> ' + data.data.duck_id + ' [' + data.data.message_id + '] </a></p></div><div class="whitespace-nowrap text-right text-sm text-gray-400"><time datetime="2020-09-22">' + time24h + '</time></div></div></div></div></li>';
-
           let oldFeed = localStorage.getItem('feed');
 	  if (oldFeed == null) {
             oldFeed = data;
@@ -78,16 +70,23 @@ $(document).ready(function() {
 	    oldFeed = JSON.parse(oldFeed);
 	  }
 
-	  console.log("old message: ", oldFeed.message_id);
-	  console.log("new message: ", data.data.message_id);
+	  let template = [];
+	  $.each(data.data, function(index, value) {
+                  // Iterate over the received data and append rows to the table
+                  const date = new Date(value.created_at);
+                  const time24h = date.toLocaleTimeString('en-GB', {
+                    hourCycle: 'h23',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  });
 
-	  if (oldFeed.message_id != data.data.message_id) {
-            $('div.flow-root ul').prepend(template);
-          }
+		  let templateData =  '<li><div class="relative pb-8"><div class="relative flex space-x-3"><div><img src="/images/logo.png" alt="Logo" class="size-10"></div><div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5"><div><p class="text-sm text-gray-400">' + value.payload + '<a href="#" class="font-medium text-white"> ' + value.duck_id + ' [' + value.message_id + '] </a></p></div><div class="whitespace-nowrap text-right text-sm text-gray-400"><time datetime="2020-09-22">' + time24h + '</time></div></div></div></div></li>'
+		  template.push(templateData);
+	  })
 
-          if ($('div.flow-root ul li').length >= 5) {
-            $('div.flow-root ul li').last().remove();
-          }
+          $('div.flow-root ul li').remove();
+          $('div.flow-root ul').html(template.join(""));
 
           let feed = JSON.stringify(data.data);
           localStorage.setItem('feed', feed);
