@@ -217,11 +217,29 @@ $(document).ready(function() {
     pollData();
 
     // Status page: poll /status/history and refresh each duck's message box (newest first)
-    function formatHistoryMessage(msg) {
-      var payload  = msg.payload || '';
-      var isSos    = /\bSOS\b/i.test(payload);
-      var isDevice = /\bSRC:DEVICE\b/i.test(payload);
-      var isMsg    = /^MSG\b/i.test(payload);
+    function formatHistoryMessage(msg, isRead) {
+      var payload    = msg.payload || '';
+      var isOutbound = msg.direction === 'outbound';
+      var isSos      = /\bSOS\b/i.test(payload);
+      var isDevice   = /\bSRC:DEVICE\b/i.test(payload);
+      var isMsg      = /^MSG\b/i.test(payload);
+      var isMsgRead  = /^MSG_READ\b/i.test(payload);
+
+      // --- Operator-sent message (outbound) ---
+      if (isOutbound) {
+        var textMatch = payload.match(/TEXT:(.+)$/i);
+        var sentText  = textMatch ? escapeHtml(textMatch[1].trim()) : escapeHtml(payload);
+        var readTick  = isRead
+          ? '<span class="inline-flex items-center gap-0.5 text-xs text-blue-300 mt-0.5">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-3">' +
+                '<path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" /></svg>' +
+              'Received</span>'
+          : '<span class="text-xs text-gray-500 mt-0.5">Sent</span>';
+        return '<div class="flex flex-col items-end">' +
+                 '<div class="rounded-md px-3 py-1.5 text-sm bg-indigo-600/70 text-white break-words max-w-full">' + sentText + '</div>' +
+                 readTick +
+               '</div>';
+      }
 
       // Reuse the shared urgencyBadge() from the outer scope (defaults to Low when absent)
       var badge = urgencyBadge(payload);
@@ -277,20 +295,42 @@ $(document).ready(function() {
               if (messages.length === 0) {
                 $box.html('<p class="text-center text-xs text-gray-500">No messages yet.</p>');
               } else {
+                // Build a set of TEXT values confirmed read by MSG_READ receipts from the duck
+                var readTexts = new Set();
+                $.each(messages, function(i, m) {
+                  var p = m.payload || '';
+                  if (/^MSG_READ\b/i.test(p)) {
+                    var tm = p.match(/TEXT:(.+)$/i);
+                    if (tm) readTexts.add(tm[1].trim().toLowerCase());
+                  }
+                });
+
                 var html = '';
-                $.each(messages, function(i, msg) {
+                $.each(messages.slice().reverse(), function(i, msg) {
+                  // MSG_READ entries only serve to build readTexts — don't render them
+                  if (/^MSG_READ\b/i.test(msg.payload || '')) return;
+
                   var date = new Date(msg.created_at);
                   var timestamp = date.toLocaleString(navigator.language, {
                     day: '2-digit', month: 'short',
                     hour: '2-digit', minute: '2-digit', second: '2-digit',
                     hourCycle: 'h23'
                   });
-                  html += '<div class="flex flex-col items-start mb-2">' +
-                            formatHistoryMessage(msg) +
+                  // Only outbound (operator-sent) messages can be marked as read
+                  var msgPayload = msg.payload || '';
+                  var isReadMsg  = false;
+                  if (msg.direction === 'outbound' && /^MSG\b/i.test(msgPayload)) {
+                    var tm = msgPayload.match(/TEXT:(.+)$/i);
+                    if (tm) isReadMsg = readTexts.has(tm[1].trim().toLowerCase());
+                  }
+                  var align = msg.direction === 'outbound' ? 'items-end' : 'items-start';
+                  html += '<div class="flex flex-col ' + align + ' mb-2">' +
+                            formatHistoryMessage(msg, isReadMsg) +
                             '<span class="mt-0.5 text-xs text-gray-500">' + timestamp + '</span>' +
                           '</div>';
                 });
                 $box.html(html);
+                $box.scrollTop($box[0].scrollHeight);
               }
             }
 
@@ -313,14 +353,31 @@ $(document).ready(function() {
             // --- Card payload text ---
             var $payload = $('[data-payload-duck="' + duckId + '"]');
             if ($payload.length && messages.length > 0) {
-              var latestText = messages[0].text || messages[0].payload || '';
-              $payload.text(latestText);
+              // Skip MSG_READ receipts and outbound messages for the card status display
+              var cardMsg = null;
+              for (var ci = 0; ci < messages.length; ci++) {
+                var m = messages[ci];
+                if (m.direction === 'outbound') continue;
+                if (/^MSG_READ\b/i.test(m.payload || '')) continue;
+                cardMsg = m; break;
+              }
+              if (cardMsg) {
+                var latestText = cardMsg.text || cardMsg.payload || '';
+                $payload.text(latestText);
+              }
             }
 
             // --- Critical MSG urgency notice ---
             var $urgencyNotice = $('[data-urgency-notice-duck="' + duckId + '"]');
             if ($urgencyNotice.length && messages.length > 0) {
-              var latestPayload = messages[0].payload || '';
+              var cardMsg2 = null;
+              for (var ci2 = 0; ci2 < messages.length; ci2++) {
+                var m2 = messages[ci2];
+                if (m2.direction === 'outbound') continue;
+                if (/^MSG_READ\b/i.test(m2.payload || '')) continue;
+                cardMsg2 = m2; break;
+              }
+              var latestPayload = cardMsg2 ? (cardMsg2.payload || '') : '';
               var isMsg         = /^MSG\b/i.test(latestPayload);
               var urgencyM      = latestPayload.match(/URGENCY:(\d)/i);
               var isCritical    = isMsg && urgencyM && urgencyM[1] === '2';
@@ -340,27 +397,55 @@ $(document).ready(function() {
               }
             }
 
+            // --- Card critical styling (toggle based on live urgency) ---
+            var $card   = $('[data-duck-id="' + duckId + '"]');
+            var $header = $card.children().first();
+            var $duckId = $header.find('span').first();
+            var latestPayloadForStyle = cardMsg2 ? (cardMsg2.payload || '') : '';
+            var isCriticalCard = /^MSG\b/i.test(latestPayloadForStyle) &&
+                                 (function(){ var m = latestPayloadForStyle.match(/URGENCY:(\d)/i); return m && m[1] === '2'; })();
+
+            if (isCriticalCard) {
+              $card.attr('class', 'critical-card flex flex-col divide-y divide-red-500/30 overflow-hidden rounded-lg bg-red-950/40 outline outline-2 -outline-offset-2 outline-red-500');
+              $header.attr('class', 'px-4 py-4 sm:px-6 flex flex-col gap-2 bg-red-900/50');
+              $duckId.attr('class', 'text-sm font-bold text-red-300 tracking-wide');
+            } else {
+              $card.attr('class', 'flex flex-col divide-y divide-white/10 overflow-hidden rounded-lg bg-gray-800/50 outline outline-1 -outline-offset-1 outline-white/10');
+              $header.attr('class', 'px-4 py-4 sm:px-6 flex flex-col gap-2');
+              $duckId.attr('class', 'text-sm font-semibold text-white');
+            }
+
             // --- Last known GPS ---
             var $gps = $('[data-gps-duck="' + duckId + '"]');
             if ($gps.length) {
               if (lastCoords) {
-                // Only re-render if the map_url changed (avoids flicker on every poll)
-                if ($gps.data('current-map-url') !== lastCoords.map_url) {
-                  $gps.data('current-map-url', lastCoords.map_url);
-                  var embedUrl = lastCoords.map_url.replace('maps?q=', 'maps?output=embed&q=');
+                var embedUrl = lastCoords.map_url.replace('maps?q=', 'maps?output=embed&q=');
+                var cachedUrl = $gps.attr('data-cached-map-url');
+                if (cachedUrl !== lastCoords.map_url) {
+                  $gps.attr('data-cached-map-url', lastCoords.map_url);
                   $gps.html(
-                    '<div class="flex items-center justify-between rounded-md bg-white/5 px-3 py-2 outline outline-1 -outline-offset-1 outline-white/10">' +
-                      '<div class="flex items-center gap-2 text-xs text-gray-400">' +
-                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-3.5 shrink-0 text-green-400"><path fill-rule="evenodd" d="m7.539 14.841.003.003.002.002a.755.755 0 0 0 .912 0l.002-.002.003-.003.012-.009a5.57 5.57 0 0 0 .19-.153 15.588 15.588 0 0 0 2.046-2.082c1.101-1.351 2.291-3.342 2.291-5.597A5 5 0 0 0 3 7c0 2.255 1.19 4.246 2.292 5.597a15.591 15.591 0 0 0 2.046 2.082 8.916 8.916 0 0 0 .189.153l.012.01ZM8 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" clip-rule="evenodd" /></svg>' +
-                        '<span class="gps-age">Last known location &mdash; ' + escapeHtml(lastCoords.created_at_for_humans) + '</span>' +
+                    '<div class="rounded-md overflow-hidden outline outline-1 -outline-offset-1 outline-white/10">' +
+                      '<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:0.5rem 1.25rem 0.5rem 1rem">' +
+                        '<div style="display:flex;flex-direction:column;gap:1px;font-size:0.75rem;color:#9ca3af">' +
+                          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;color:#4ade80;flex-shrink:0;display:none"></svg>' +
+                          '<span>Last known location</span>' +
+                          '<span class="gps-age" style="font-size:0.7rem;color:#6b7280">' + escapeHtml(lastCoords.created_at_for_humans) + '</span>' +
+                        '</div>' +
+                        '<div style="display:flex;align-items:center;gap:6px">' +
+                        (lastCoords.lat && lastCoords.lng
+                          ? '<button type="button" class="gps-copy-coords" data-lat="' + escapeHtml(lastCoords.lat) + '" data-lng="' + escapeHtml(lastCoords.lng) + '" title="Copy coordinates">' +
+                              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle"><path d="M3.5 2A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h5a1.5 1.5 0 0 0 1.5-1.5v-1H11a1.5 1.5 0 0 0 1.5-1.5v-5l-3-3H7A1.5 1.5 0 0 0 5.5 3H5V2H3.5zm4 1H8v2.5A.5.5 0 0 0 8.5 6H11v4.5a.5.5 0 0 1-.5.5h-1V8.5A1.5 1.5 0 0 0 8 7H4V3.5a.5.5 0 0 1 .5-.5H7.5z"/></svg>' +
+                            '</button>'
+                          : '') +
+                        '<a href="' + escapeHtml(lastCoords.map_url) + '" target="_blank" rel="noopener noreferrer" class="gps-toggle-map">Open in Maps</a>' +
                       '</div>' +
-                      '<button type="button" data-embed-url="' + escapeHtml(embedUrl) + '" data-duck-id="' + escapeHtml(duckId) + '" ' +
-                              'class="gps-toggle-map ml-3 shrink-0 rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white hover:bg-green-500">Open Map</button>' +
+                      '</div>' +
+                      '<iframe src="' + escapeHtml(embedUrl) + '" class="w-full border-0" style="height:180px" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>' +
                     '</div>'
                   );
                 } else {
                   // Just refresh the "X ago" label without re-rendering the whole block
-                  $gps.find('.gps-age').text('Last known location \u2014 ' + lastCoords.created_at_for_humans);
+                  $gps.find('.gps-age').text(lastCoords.created_at_for_humans);
                 }
               } else {
                 $gps.html('<p class="text-xs text-gray-600">No GPS coordinates received yet.</p>');
@@ -379,23 +464,19 @@ $(document).ready(function() {
       setInterval(pollHistory, 3000);
     }
 
-    // Toggle inline map iframe when "Open Map" is clicked
-    $(document).on('click', '.gps-toggle-map', function() {
-      var embedUrl = $(this).data('embed-url');
-      var duckId   = $(this).data('duck-id');
-      var $wrapper = $('[data-map-iframe-duck="' + duckId + '"]');
-      var $iframe  = $wrapper.find('iframe');
-
-      if ($wrapper.hasClass('hidden')) {
-        if ($iframe.attr('src') !== embedUrl) {
-          $iframe.attr('src', embedUrl);
-        }
-        $wrapper.removeClass('hidden');
-        $(this).text('Hide Map');
-      } else {
-        $wrapper.addClass('hidden');
-        $(this).text('Open Map');
-      }
+    $(document).on('click', '.gps-copy-coords', function() {
+      var lat = $(this).data('lat');
+      var lng = $(this).data('lng');
+      var text = lat + ', ' + lng;
+      var $btn = $(this);
+      navigator.clipboard.writeText(text).then(function() {
+        $btn.attr('title', 'Copied!');
+        $btn.css('color', '#4ade80');
+        setTimeout(function() {
+          $btn.attr('title', 'Copy coordinates');
+          $btn.css('color', '');
+        }, 2000);
+      });
     });
 
     $(document).on('submit', '.duck-message-form', function(e) {

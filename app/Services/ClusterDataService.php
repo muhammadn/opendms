@@ -74,12 +74,15 @@ class ClusterDataService
 
     /**
      * Fetch the latest ClusterData record per duck_id.
+     * Topic 22 (MSG_READ receipts) and 'outbound' (operator-sent messages)
+     * are excluded so they do not override the displayed current status on the card.
      */
     public function getLatestPerDuck(): Collection
     {
         return ClusterData::whereIn('id', function ($query) {
             $query->selectRaw('max(id)')
                 ->from('cluster_data')
+                ->whereNotIn('topic', ['22', 'outbound'])
                 ->groupBy('duck_id');
         })->get();
     }
@@ -112,6 +115,7 @@ class ClusterDataService
                 'text'       => $row->display_text,
                 'map_url'    => $row->map_url,
                 'created_at' => $row->created_at,
+                'direction'  => $row->topic === 'outbound' ? 'outbound' : 'inbound',
             ])->values());
     }
 
@@ -125,10 +129,21 @@ class ClusterDataService
             ->get()
             ->filter(fn(ClusterData $d) => $d->map_url !== null)
             ->groupBy('duck_id')
-            ->map(fn($rows) => [
-                'map_url'    => $rows->first()->map_url,
-                'created_at' => $rows->first()->created_at,
-            ]);
+            ->map(function ($rows) {
+                $first   = $rows->first();
+                $lat     = null;
+                $lng     = null;
+                if (preg_match('/LAT:(-?\d+(?:\.\d+)?),LNG:(-?\d+(?:\.\d+)?)/', $first->payload ?? '', $m)) {
+                    $lat = $m[1];
+                    $lng = $m[2];
+                }
+                return [
+                    'map_url'    => $first->map_url,
+                    'created_at' => $first->created_at,
+                    'lat'        => $lat,
+                    'lng'        => $lng,
+                ];
+            });
     }
 
     /**
@@ -156,6 +171,8 @@ class ClusterDataService
                     'map_url'               => $lastCoords[$duckId]['map_url'],
                     'created_at'            => $lastCoords[$duckId]['created_at'],
                     'created_at_for_humans' => $lastCoords[$duckId]['created_at']->diffForHumans(),
+                    'lat'                   => $lastCoords[$duckId]['lat'],
+                    'lng'                   => $lastCoords[$duckId]['lng'],
                 ] : null,
             ]];
         });

@@ -6,6 +6,35 @@
     50%       { box-shadow: 0 0 24px 6px rgba(239,68,68,0.5), 0 0 0 2px rgba(239,68,68,1); }
   }
   .critical-card { animation: critical-glow 2s ease-in-out infinite; }
+  .gps-toggle-map {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: 0.75rem;
+    border-radius: 0.25rem;
+    background-color: #16a34a;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+  }
+  .gps-toggle-map:hover { background-color: #15803d; color: #fff; }
+  .gps-copy-coords {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    padding: 2px;
+    border-radius: 4px;
+  }
+  .gps-copy-coords:hover { color: #fff; background: rgba(255,255,255,0.1); }
 </style>
 <div class="flex flex-col">
   <div class="mb-4 flex items-center justify-between">
@@ -39,14 +68,6 @@
       </span>
       <button type="button" data-status-duck="{{ $mamaduck->duck_id }}" class="rounded bg-green-500 px-2 py-1 text-xs font-semibold text-white hover:bg-green-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-500">Online</button>
     </div>
-    @if ($mamaduck->urgency === \App\Enums\Urgency::Critical)
-      <span class="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white animate-pulse ring-2 ring-inset ring-red-400">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-3.5 shrink-0">
-          <path fill-rule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
-        </svg>
-        Critical Alert
-      </span>
-    @endif
   </div>
   <!-- Body -->
   <div class="flex-1 px-4 py-5 sm:p-6">
@@ -96,7 +117,7 @@
     @if ($mamaduck->id === $latestCoordsId && $mamaduck->map_url)
       @php $mapDialogId = 'map-dialog-' . $mamaduck->id; @endphp
       <button command="show-modal" commandfor="{{ $mapDialogId }}"
-         class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-white ring-1 ring-inset ring-white/5 hover:bg-white/20">
+         class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-500">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-3.5">
           <path fill-rule="evenodd" d="m7.539 14.841.003.003.002.002a.755.755 0 0 0 .912 0l.002-.002.003-.003.012-.009a5.57 5.57 0 0 0 .19-.153 15.588 15.588 0 0 0 2.046-2.082c1.101-1.351 2.291-3.342 2.291-5.597A5 5 0 0 0 3 7c0 2.255 1.19 4.246 2.292 5.597a15.591 15.591 0 0 0 2.046 2.082 8.916 8.916 0 0 0 .189.153l.012.01ZM8 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" clip-rule="evenodd" />
         </svg>
@@ -148,22 +169,17 @@
   @csrf
   <input type="hidden" name="duck_id" value="{{ $mamaduck->duck_id }}">
   <div class="space-y-12">
-    <div class="border-b border-white/10 pb-12">
+    <div class="border-b border-white/10 pb-3">
       <h2 class="text-base/7 font-semibold text-white">Messaging</h2>
       <p class="mt-1 text-sm/6 text-gray-400">This messaging is on a best-effort basis</p>
-
-        <!-- Conversation history — populated by pollHistory() in app.js -->
-        <div class="mt-4 h-48 overflow-y-auto rounded-md bg-white/5 p-3 space-y-2 outline outline-1 -outline-offset-1 outline-white/10"
-             data-history-duck="{{ $mamaduck->duck_id }}">
-          <p class="text-center text-xs text-gray-500">Loading…</p>
-        </div>
 
         <!-- Last known GPS location — updated by pollHistory() -->
         <div data-gps-duck="{{ $mamaduck->duck_id }}" class="mt-3"></div>
 
-        <!-- Inline map iframe — shown when "Open Map" is clicked -->
-        <div data-map-iframe-duck="{{ $mamaduck->duck_id }}" class="hidden mt-2 overflow-hidden rounded-md outline outline-1 -outline-offset-1 outline-white/10">
-          <iframe class="w-full h-56 border-0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <!-- Conversation history — populated by pollHistory() in app.js -->
+        <div class="mt-3 h-48 overflow-y-auto rounded-md bg-white/5 p-3 space-y-2 outline outline-1 -outline-offset-1 outline-white/10"
+             data-history-duck="{{ $mamaduck->duck_id }}">
+          <p class="text-center text-xs text-gray-500">Loading…</p>
         </div>
 
         <div class="col-span-full mt-4">
@@ -176,7 +192,7 @@
     </div>
   </div>
 
-  <div class="mt-5 sm:mt-6">
+  <div class="mt-2">
             <button type="submit" command="close" commandfor="msg-dialog-{{ $mamaduck->duck_id }}" class="duck-send-message inline-flex w-full justify-center rounded-md bg-yellow-500 px-3 py-2 text-sm font-semibold text-white hover:bg-yellow-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500">Send Message</button>
   </div>
 </form>
