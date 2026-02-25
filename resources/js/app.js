@@ -33,11 +33,11 @@ $(document).ready(function() {
                   var isSosDev = /^SOS/i.test(payload) && /SRC:DEVICE/i.test(payload);
                   var isSosMob = /^SOS/i.test(payload) && !/SRC:DEVICE/i.test(payload);
                   var isMsg    = /^MSG\b/i.test(payload);
-                  var tag = '';
-                  if (isSosDev)      tag = '<span class="mr-1 inline-flex items-center rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white">SOS HW</span>';
-                  else if (isSosMob) tag = '<span class="mr-1 inline-flex items-center rounded bg-orange-500 px-1.5 py-0.5 text-xs font-bold text-white">SOS</span>';
-                  else if (isMsg)    tag = '<span class="mr-1 inline-flex items-center rounded bg-indigo-600 px-1.5 py-0.5 text-xs font-bold text-white">MSG</span>';
-                  return tag + escapeHtml(data || payload || '');
+                  var tag = '<span class="w-14 shrink-0"></span>';
+                  if (isSosDev)      tag = '<span class="shrink-0 inline-flex items-center justify-center rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white whitespace-nowrap">SOS HW</span>';
+                  else if (isSosMob) tag = '<span class="w-14 shrink-0 inline-flex items-center justify-center rounded bg-orange-500 px-1.5 py-0.5 text-xs font-bold text-white">SOS</span>';
+                  else if (isMsg)    tag = '<span class="w-14 shrink-0 inline-flex items-center justify-center rounded bg-indigo-600 px-1.5 py-0.5 text-xs font-bold text-white">MSG</span>';
+                  return '<div class="flex items-start gap-2">' + tag + '<span>' + escapeHtml(data || payload || '') + '</span></div>';
                 }
 	      },
 	      { data: "hops", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1' },

@@ -81,10 +81,10 @@
         </div>
 
 
- <div class="flex">
+ <div class="flex justify-end items-center gap-2">
 <!-- Include this script tag or install `@tailwindplus/elements` via npm: -->
 <!-- <script src="https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1" type="module"></script> -->
-<el-select id="table-select" name="selected" value="20" class="mt-4 block">
+<el-select id="table-select" name="selected" value="20" class="block">
   <button type="button" class="grid w-full cursor-default grid-cols-1 rounded-md bg-white/5 py-1.5 pl-3 pr-2 text-left text-white outline outline-1 -outline-offset-1 outline-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-500 sm:text-sm/6">
     <el-selectedcontent class="col-start-1 row-start-1 truncate pr-6">10 rows</el-selectedcontent>
     <svg viewBox="0 0 16 16" fill="currentColor" data-slot="icon" aria-hidden="true" class="col-start-1 row-start-1 size-5 self-center justify-self-end text-gray-400 sm:size-4">
@@ -145,12 +145,13 @@
   </el-options>
 </el-select>
 
-    <div class="m-4 flex justify-end rounded-md bg-white/5 outline outline-1 -outline-offset-1 outline-white/10 focus-within:outline focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-gray-500">
-      <div class="flex py-1.5 pr-1.5">
-        <kbd class="inline-flex items-center rounded border border-white/10 px-1 font-sans text-xs m-1 text-gray-400">⌘K</kbd>
+    <div class="relative mt-3 mb-3">
+      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4 text-gray-400">
+          <path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" />
+        </svg>
       </div>
-
-      <input id="custom-filter" type="text" name="search" class="rounded-r-md min-w-0 grow bg-transparent px-3 py-1.5 text-base text-white placeholder:text-gray-500 focus:outline focus:outline-0 sm:text-sm/6" />
+      <input id="custom-filter" type="text" name="search" class="rounded-md min-w-0 grow bg-white/5 pl-9 pr-3 py-1.5 text-base text-white placeholder:text-gray-500 outline outline-1 -outline-offset-1 outline-white/10 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6" />
     </div>
   </div>
 
