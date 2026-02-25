@@ -13,6 +13,18 @@ $(document).ready(function() {
                url: '/dashboard/json', 
 	       dataSrc: 'data',
             },
+	    drawCallback: function() {
+              $('#ducks-table tbody .msg-text').each(function() {
+                var el   = this;
+                var $btn = $(el).siblings('.msg-toggle');
+                // scrollHeight > clientHeight means text is clamped
+                if (el.scrollHeight <= el.clientHeight) {
+                  $btn.hide();
+                } else {
+                  $btn.show();
+                }
+              });
+            },
 	    columns: [
               { data: "duck_id", defaultContent: '', className: 'relative border-t border-transparent py-4 pl-4 pr-3 text-sm sm:pl-6', "render": function(data, type, row, meta) {
                     return '<div class="font-medium text-white">' + data + '</div><div class="absolute -top-px left-6 right-0 h-px bg-white/10"></div>';
@@ -30,14 +42,18 @@ $(document).ready(function() {
 	      },
 	      { data: "display_text", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell', render: function(data, type, row) {
                   var payload = row.payload || '';
+                  var rawText = data || payload || '';
                   var isSosDev = /^SOS/i.test(payload) && /SRC:DEVICE/i.test(payload);
                   var isSosMob = /^SOS/i.test(payload) && !/SRC:DEVICE/i.test(payload);
                   var isMsg    = /^MSG\b/i.test(payload);
-                  var tag = '<span class="w-14 shrink-0"></span>';
-                  if (isSosDev)      tag = '<span class="shrink-0 inline-flex items-center justify-center rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white whitespace-nowrap">SOS HW</span>';
-                  else if (isSosMob) tag = '<span class="w-14 shrink-0 inline-flex items-center justify-center rounded bg-orange-500 px-1.5 py-0.5 text-xs font-bold text-white">SOS</span>';
-                  else if (isMsg)    tag = '<span class="w-14 shrink-0 inline-flex items-center justify-center rounded bg-indigo-600 px-1.5 py-0.5 text-xs font-bold text-white">MSG</span>';
-                  return '<div class="flex items-start gap-2">' + tag + '<span>' + escapeHtml(data || payload || '') + '</span></div>';
+                  var tag = '<span style="width:3.5rem;flex-shrink:0;display:inline-block;"></span>';
+                  if (isSosDev)      tag = '<span style="flex-shrink:0;" class="inline-flex items-center justify-center rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white whitespace-nowrap">SOS HW</span>';
+                  else if (isSosMob) tag = '<span style="flex-shrink:0;width:3.5rem;" class="inline-flex items-center justify-center rounded bg-orange-500 px-1.5 py-0.5 text-xs font-bold text-white">SOS</span>';
+                  else if (isMsg)    tag = '<span style="flex-shrink:0;width:3.5rem;" class="inline-flex items-center justify-center rounded bg-indigo-600 px-1.5 py-0.5 text-xs font-bold text-white">MSG</span>';
+                  var TRUNCATED_STYLE = 'display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;word-break:break-all;white-space:normal;';
+                  var btn  = '<button class="msg-toggle" style="display:block;margin-left:auto;color:#818cf8;font-size:0.7rem;font-weight:500;cursor:pointer;background:none;border:none;padding:0;white-space:nowrap;text-align:right;" onmouseover="this.style.color=\'#a5b4fc\'" onmouseout="this.style.color=\'#818cf8\'">Show more</button>';
+                  var inner = '<div style="flex:1;min-width:0;"><span class="msg-text" style="' + TRUNCATED_STYLE + '">' + escapeHtml(rawText) + '</span>' + btn + '</div>';
+                  return '<div style="display:flex;align-items:flex-start;gap:0.5rem;min-width:0;">' + tag + inner + '</div>';
                 }
 	      },
 	      { data: "hops", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1' },
@@ -55,6 +71,21 @@ $(document).ready(function() {
 	      },
 	    ],
     })
+
+  $('#ducks-table tbody').on('click', '.msg-toggle', function () {
+    var $btn  = $(this);
+    var $text = $btn.siblings('.msg-text');
+    var expanded = $btn.data('expanded');
+    if (expanded) {
+      $text.css({ 'display': '-webkit-box', '-webkit-line-clamp': '1', '-webkit-box-orient': 'vertical', 'overflow': 'hidden' });
+      $btn.text('Show more');
+      $btn.data('expanded', false);
+    } else {
+      $text.css({ 'display': 'block', '-webkit-line-clamp': 'unset', 'overflow': 'visible' });
+      $btn.text('Show less');
+      $btn.data('expanded', true);
+    }
+  });
 
   $('#ducks-table tbody').on('click', '.dt-map-btn', function () {
     var tr  = $(this).closest('tr');
@@ -173,10 +204,8 @@ $(document).ready(function() {
                   } else if (isMsg) {
                     var textMatch = payload.match(/TEXT:(.+)$/i);
                     var msgText   = textMatch ? escapeHtml(textMatch[1].trim()) : escapeHtml(payload);
-                    payloadHtml   = '<span class="inline-flex items-center gap-1 text-gray-300">' +
-                                      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-3.5 shrink-0 text-gray-400"><path fill-rule="evenodd" d="M1 8.74C1 9.99 1.99 11 3.21 11H4v1.306c0 .657.793 1.002 1.278.55l1.977-1.856H12.8c1.22 0 2.2-1.01 2.2-2.26V4.26C15 3.01 14.02 2 12.8 2H3.2C1.98 2 1 3.01 1 4.26v4.48Z" clip-rule="evenodd"/></svg>' +
-                                      msgText +
-                                    '</span>';
+                    payloadHtml   = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-3.5 shrink-0 text-gray-400" style="flex-shrink:0;"><path fill-rule="evenodd" d="M1 8.74C1 9.99 1.99 11 3.21 11H4v1.306c0 .657.793 1.002 1.278.55l1.977-1.856H12.8c1.22 0 2.2-1.01 2.2-2.26V4.26C15 3.01 14.02 2 12.8 2H3.2C1.98 2 1 3.01 1 4.26v4.48Z" clip-rule="evenodd"/></svg>' +
+                                   '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">' + msgText + '</span>';
                   } else {
                     payloadHtml = escapeHtml(payload);
                   }
@@ -185,7 +214,7 @@ $(document).ready(function() {
 
                   var bodyHtml;
                   if (isMsg) {
-                    bodyHtml = '<p class="text-sm text-gray-400 break-words">' + payloadHtml + '</p>' +
+                    bodyHtml = '<p class="text-sm text-gray-300" style="display:flex;align-items:center;gap:0.25rem;min-width:0;overflow:hidden;">' + payloadHtml + '</p>' +
                                urgencyRow(payload) +
                                '<p class="mt-0.5 text-xs">' + duckLink + '</p>';
                   } else {
@@ -236,7 +265,7 @@ $(document).ready(function() {
               'Received</span>'
           : '<span class="text-xs text-gray-500 mt-0.5">Sent</span>';
         return '<div class="flex flex-col items-end">' +
-                 '<div class="rounded-md px-3 py-1.5 text-sm bg-indigo-600/70 text-white break-words max-w-full">' + sentText + '</div>' +
+                 '<div class="rounded-md px-3 py-1.5 text-sm bg-indigo-600/70 text-white break-all max-w-full">' + sentText + '</div>' +
                  readTick +
                '</div>';
       }
@@ -267,14 +296,14 @@ $(document).ready(function() {
       if (isMsg) {
         var textMatch = payload.match(/TEXT:(.+)$/i);
         var msgText   = textMatch ? escapeHtml(textMatch[1].trim()) : escapeHtml(msg.text || payload);
-        return '<div class="rounded-md px-3 py-1.5 text-sm bg-white/10 text-gray-300 break-words">' +
+        return '<div class="rounded-md px-3 py-1.5 text-sm bg-white/10 text-gray-300 break-all">' +
                  msgText +
                  urgencyRow(payload) +
                '</div>';
       }
 
       var text = escapeHtml(msg.text || msg.payload || '(no content)');
-      return '<div class="max-w-full rounded-md px-3 py-1.5 text-sm bg-white/10 text-gray-300 break-words">' +
+      return '<div class="max-w-full rounded-md px-3 py-1.5 text-sm bg-white/10 text-gray-300 break-all">' +
                text +
              '</div>';
     }
@@ -330,8 +359,18 @@ $(document).ready(function() {
                             '<span class="mt-0.5 text-xs text-gray-500">' + timestamp + '</span>' +
                           '</div>';
                 });
-                $box.html(html);
-                $box.scrollTop($box[0].scrollHeight);
+                var newHtml = html;
+                var oldHtml = $box.data('last-html') || '';
+                if (newHtml !== oldHtml) {
+                  // Only auto-scroll if the user is already at (or near) the bottom
+                  var el = $box[0];
+                  var atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+                  $box.html(newHtml);
+                  $box.data('last-html', newHtml);
+                  if (atBottom) {
+                    $box.scrollTop(el.scrollHeight);
+                  }
+                }
               }
             }
 
@@ -351,10 +390,9 @@ $(document).ready(function() {
               $ts.text(duck.last_seen.created_at_for_humans);
             }
 
-            // --- Card payload text ---
-            var $payload = $('[data-payload-duck="' + duckId + '"]');
-            if ($payload.length && messages.length > 0) {
-              // Skip MSG_READ receipts and outbound messages for the card status display
+            // --- Card body (message text / SOS banners) ---
+            var $cardBody = $('[data-card-body-duck="' + duckId + '"]');
+            if ($cardBody.length && messages.length > 0) {
               var cardMsg = null;
               for (var ci = 0; ci < messages.length; ci++) {
                 var m = messages[ci];
@@ -363,8 +401,32 @@ $(document).ready(function() {
                 cardMsg = m; break;
               }
               if (cardMsg) {
-                var latestText = cardMsg.text || cardMsg.payload || '';
-                $payload.text(latestText);
+                var cp        = cardMsg.payload || '';
+                var cisSosDev = /\bSOS\b/i.test(cp) && /\bSRC:DEVICE\b/i.test(cp);
+                var cisSosMob = /\bSOS\b/i.test(cp) && !/\bSRC:DEVICE\b/i.test(cp);
+                var cisMsg    = /^MSG\b/i.test(cp);
+                var bodyHtml;
+                if (cisSosDev) {
+                  bodyHtml = '<div class="flex items-start gap-2 rounded-md bg-red-900/50 px-3 py-2 ring-1 ring-inset ring-red-500/40">' +
+                               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="mt-0.5 size-4 shrink-0 text-red-400"><path fill-rule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>' +
+                               '<div><p class="text-xs font-semibold text-red-400">SOS \u2014 Hardware Button Triggered</p>' +
+                               '<p class="text-xs text-red-300/80">This SOS was sent because the physical SOS button on the device was pressed.</p></div>' +
+                             '</div>';
+                } else if (cisSosMob) {
+                  bodyHtml = '<div class="flex items-start gap-2 rounded-md bg-orange-900/50 px-3 py-2 ring-1 ring-inset ring-orange-500/40">' +
+                               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="mt-0.5 size-4 shrink-0 text-orange-400"><path fill-rule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>' +
+                               '<div><p class="text-xs font-semibold text-orange-400">SOS \u2014 Mobile Phone Triggered</p>' +
+                               '<p class="text-xs text-orange-300/80">This SOS was sent from the user\'s mobile phone application and should include GPS coordinates.</p></div>' +
+                             '</div>';
+                } else {
+                  var displayText = cardMsg.text || cardMsg.payload || '';
+                  bodyHtml = '<p class="text-sm text-gray-400 break-words">' + escapeHtml(displayText) + '</p>';
+                }
+                var newBodyHtml = bodyHtml;
+                if ($cardBody.data('last-html') !== newBodyHtml) {
+                  $cardBody.html(newBodyHtml);
+                  $cardBody.data('last-html', newBodyHtml);
+                }
               }
             }
 
@@ -463,6 +525,17 @@ $(document).ready(function() {
     if ($('[data-history-duck]').length) {
       pollHistory();
       setInterval(pollHistory, 3000);
+
+      // Scroll history to bottom when the message modal is first opened
+      document.querySelectorAll('dialog[id^="msg-dialog-"]').forEach(function(dialog) {
+        dialog.addEventListener('toggle', function(e) {
+          if (e.newState === 'open') {
+            var duckId = dialog.id.replace('msg-dialog-', '');
+            var box = document.querySelector('[data-history-duck="' + duckId + '"]');
+            if (box) box.scrollTop = box.scrollHeight;
+          }
+        });
+      });
     }
 
     $(document).on('click', '.gps-copy-coords', function() {

@@ -191,7 +191,7 @@
             <div class="sm:hidden">{{ $cluster-> path }}</div>
             <div class="hidden sm:block">{{ $cluster->path }}</div>
           </td>
-          <td class="hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell">{{ $cluster->payload }}</td>
+          <td class="hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell"><div class="break-words whitespace-normal">{{ $cluster->payload }}</div></td>
           <td class="hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell">{{ $cluster->hops }}</td>
           <td class="hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell">{{ $cluster->duck_type }}</td>
         </tr>
