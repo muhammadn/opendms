@@ -41,8 +41,10 @@ jobs:
       - name: Install Node Dependencies
         run: npm i
 
-      - name: Set DB_DATABASE to absolute path
-        run: echo "DB_DATABASE=$GITHUB_WORKSPACE/database/database.sqlite"
+      - name: Create SQLite database file
+        run: |
+          mkdir -p database
+          touch database/database.sqlite
 
       - name: Add Flux Credentials Loaded From ENV
         run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
