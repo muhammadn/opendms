@@ -42,7 +42,9 @@ jobs:
         run: npm i
 
       - name: Create SQLite database file
-        run: touch /home/runner/work/opendms/opendms/database/database.sqlite
+        run: |
+          touch database/database.sqlite
+          chmod 777 database/database.sqlite
 
       - name: Add Flux Credentials Loaded From ENV
         run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
