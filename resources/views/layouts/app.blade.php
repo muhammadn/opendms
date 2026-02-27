@@ -1,12 +1,3 @@
-<!-- <script src="https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1" type="module"></script> -->
-<!--
-  This example requires updating your template:
-
-  ```
-  <html class="h-full bg-gray-900">
-  <body class="h-full">
-  ```
--->
 @vite('resources/css/app.css')
 @vite('resources/js/app.js')
 <html class="h-full bg-gray-900">
@@ -14,11 +5,11 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body class="h-full">
-<script src="https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1" type="module"></script>
-<script src="https://code.jquery.com/jquery-3.0.0.js"></script>
-<script src="//cdn.datatables.net/2.3.7/js/dataTables.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/flowbite@4.0.1/dist/flowbite.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="{{ asset('vendor/tailwindplus-elements/elements.min.js') }}" type="module"></script>
+<script src="{{ asset('vendor/jquery/jquery-3.0.0.min.js') }}"></script>
+<script src="{{ asset('vendor/datatables/dataTables.min.js') }}"></script>
+<script src="{{ asset('vendor/flowbite/flowbite.min.js') }}"></script>
+<script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
 <div class="min-h-full">
   <div class="relative bg-gray-800/50 pb-32">
     <nav class="bg-transparent">
