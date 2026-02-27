@@ -21,7 +21,7 @@ class ClusterDataRepository
      * and MamaDuck (type 2) counts.
      * Uses standard SQL CASE expressions — works on SQLite, MySQL, PostgreSQL.
      */
-    public function getStats(): \stdClass
+    public function getStats(): ClusterData
     {
         return ClusterData::selectRaw("
             COUNT(*) as total,
