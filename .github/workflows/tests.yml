@@ -46,6 +46,9 @@ jobs:
           touch database/database.sqlite
           chmod 777 database/database.sqlite
 
+      - name: SQLite Laravel database migration
+        run: php artisan migrate
+
       - name: Add Flux Credentials Loaded From ENV
         run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
 
