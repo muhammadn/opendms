@@ -7,10 +7,6 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
-use Illuminate\Support\Facades\View;
-use App\Models\ClusterData;
-use Carbon\Carbon;
-
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -27,14 +23,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
-	View::share('clusters', ClusterData::all()
-                    ->groupBy(function ($item) {
-                        return Carbon::parse($item->created_at)->format('H');
-                    })
-                    ->map(function ($hourRecords) {
-                        return $hourRecords->count();
-		    })
-	);
     }
 
     /**

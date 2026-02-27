@@ -3,32 +3,32 @@
 namespace App\Services;
 
 use App\Models\ClusterData;
+use App\Repositories\ClusterDataRepository;
 use Illuminate\Support\Collection;
 
 class ClusterDataService
 {
+    public function __construct(
+        private readonly ClusterDataRepository $repository
+    ) {}
+
     /**
-     * Return all ClusterData records ordered by newest first.
+     * All records, newest first — used to seed the dashboard DataTable on
+     * first load before the AJAX feed takes over.
      */
     public function getAllOrderedByLatest(): Collection
     {
-        return ClusterData::orderBy('id', 'desc')->get();
+        return $this->repository->getAllOrderedByLatest();
     }
 
     /**
-     * Return total message count plus distinct PapaDuck and MamaDuck counts
-     * in a single database round-trip using standard conditional aggregates
-     * (compatible with SQLite, MySQL, and PostgreSQL).
+     * Summary counts for the dashboard stat cards.
      *
      * @return array{count: int, papaducks: int, mamaducks: int}
      */
     public function getDashboardStats(): array
     {
-        $row = ClusterData::selectRaw("
-            COUNT(*) as total,
-            COUNT(DISTINCT CASE WHEN duck_type = 1 THEN duck_id END) as papaducks,
-            COUNT(DISTINCT CASE WHEN duck_type = 2 THEN duck_id END) as mamaducks
-        ")->first();
+        $row = $this->repository->getStats();
 
         return [
             'count'     => (int) $row->total,
@@ -38,17 +38,17 @@ class ClusterDataService
     }
 
     /**
-     * Return alert/status records (all) for the DataTable JSON feed.
+     * Enriched alert/status records for the DataTable JSON feed.
+     * Business logic: appends computed attributes that are not stored in the DB.
      *
      * @return array{data: Collection, totalCount: int}
      */
     public function getJsonFeed(): array
     {
-        $clusters = ClusterData::whereIn('topic', ['alert', 'status'])
-            ->orderBy('id', 'desc')
-            ->get()
-            ->map(function ($cluster) {
+        $clusters = $this->repository->getAlertStatusOrderedDesc()
+            ->map(function (ClusterData $cluster) {
                 $urgency = $cluster->urgency;
+
                 return array_merge($cluster->toArray(), [
                     'display_text'  => $cluster->display_text,
                     'urgency_value' => $urgency?->value,
@@ -61,41 +61,29 @@ class ClusterDataService
     }
 
     /**
-     * Return the latest 4 alert/status records and their total count
-     * for the dashboard timeline.
+     * Latest 4 alert/status records + total count for the dashboard feed panel.
      *
      * @return array{data: Collection, totalCount: int}
      */
     public function getTimeline(): array
     {
-        $data  = ClusterData::whereIn('topic', ['alert', 'status'])
-            ->orderBy('id', 'desc')
-            ->take(4)
-            ->get();
-
-        $total = ClusterData::whereIn('topic', ['alert', 'status'])->count();
-
-        return ['data' => $data, 'totalCount' => $total];
+        return [
+            'data'       => $this->repository->getLatestAlertStatus(4),
+            'totalCount' => $this->repository->countAlertStatus(),
+        ];
     }
 
     /**
-     * Fetch the latest ClusterData record per duck_id.
-     * Topic 22 (MSG_READ receipts) and 'outbound' (operator-sent messages)
-     * are excluded so they do not override the displayed current status on the card.
+     * Most-recent record per duck_id (alert/status topics only).
      */
     public function getLatestPerDuck(): Collection
     {
-        return ClusterData::whereIn('id', function ($query) {
-            $query->selectRaw('max(id)')
-                ->from('cluster_data')
-                ->whereIn('topic', ['status', 'alert'])
-                ->groupBy('duck_id');
-        })->get();
+        return $this->repository->getLatestPerDuck();
     }
 
     /**
-     * From the given collection, return the ID of the most recently created
-     * record whose payload contains LAT/LNG coordinates.
+     * Business logic: from the given collection of duck records return the id
+     * of the one most recently seen with GPS coordinates.
      */
     public function latestWithCoordsId(Collection $ducks): ?int
     {
@@ -107,15 +95,15 @@ class ClusterDataService
     }
 
     /**
-     * Return the last N ClusterData records for every duck_id, keyed by duck_id.
+     * The last N messages per duck_id, shaped for the history API response.
+     * Business logic: groups raw records, determines direction, and formats shape.
      */
     public function getRecentMessagesPerDuck(int $limit = 5): Collection
     {
-        return ClusterData::orderByDesc('id')
-            ->whereIn('topic', ['status', 'alert', 'outbound', 'dcmd'])
-            ->get()
+        return $this->repository
+            ->getAllByTopicsOrderedDesc(['status', 'alert', 'outbound', 'dcmd'])
             ->groupBy('duck_id')
-            ->map(fn($rows) => $rows->take($limit)->map(fn($row) => [
+            ->map(fn($rows) => $rows->take($limit)->map(fn(ClusterData $row) => [
                 'id'         => $row->id,
                 'message_id' => $row->message_id,
                 'topic'      => $row->topic,
@@ -128,24 +116,29 @@ class ClusterDataService
     }
 
     /**
-     * Return the last known map_url per duck_id, keyed by duck_id.
-     * Searches all records, not just the latest per duck.
+     * Last known GPS coordinates per duck_id.
+     * Business logic: parses LAT/LNG from the payload string.
      */
     public function lastKnownCoordsPerDuck(): Collection
     {
-        return ClusterData::orderByDesc('id')
-            ->whereIn('topic', ['status', 'alert', 'outbound', 'dcmd'])
-            ->get()
+        return $this->repository
+            ->getAllByTopicsOrderedDesc(['status', 'alert', 'outbound', 'dcmd'])
             ->filter(fn(ClusterData $d) => $d->map_url !== null)
             ->groupBy('duck_id')
-            ->map(function ($rows) {
-                $first   = $rows->first();
-                $lat     = null;
-                $lng     = null;
-                if (preg_match('/LAT:(-?\d+(?:\.\d+)?),LNG:(-?\d+(?:\.\d+)?)/', $first->payload ?? '', $m)) {
+            ->map(function (Collection $rows) {
+                $first = $rows->first();
+                $lat   = null;
+                $lng   = null;
+
+                if (preg_match(
+                    '/LAT:(-?\d+(?:\.\d+)?),LNG:(-?\d+(?:\.\d+)?)/',
+                    $first->payload ?? '',
+                    $m
+                )) {
                     $lat = $m[1];
                     $lng = $m[2];
                 }
+
                 return [
                     'map_url'    => $first->map_url,
                     'created_at' => $first->created_at,
@@ -156,24 +149,20 @@ class ClusterDataService
     }
 
     /**
-     * Return message counts for each of the past 12 hours (can overlap into
-     * yesterday), plus a trend comparing the current hour to the previous one.
+     * Message counts for each of the past 12 hours (may overlap yesterday),
+     * plus a trend comparing the current slot to the previous one.
      *
-     * Uses only Eloquent + PHP-level grouping so the query works with any
-     * database driver (SQLite, MySQL, PostgreSQL, etc.).
+     * Business logic: all slot bucketing and trend calculation is done in PHP
+     * so the repository stays driver-agnostic.
      *
      * @return array{labels: string[], data: int[], trend: array{direction: string, percentage: float, current_hour: int, previous_hour: int}}
      */
     public function getHourlyMessageCounts(): array
     {
-        // Build the 12 hourly slots ending at the current (incomplete) hour.
         $windowStart = now()->subHours(11)->startOfHour();
         $windowEnd   = now()->endOfHour();
 
-        // Fetch only created_at for the window — Eloquent casts to Carbon automatically.
-        $records = ClusterData::where('created_at', '>=', $windowStart)
-            ->where('created_at', '<=', $windowEnd)
-            ->get(['created_at']);
+        $records = $this->repository->getAllInWindow($windowStart, $windowEnd);
 
         $labels = [];
         $data   = [];
@@ -188,7 +177,7 @@ class ClusterDataService
             )->count();
         }
 
-        // Trend: last complete slot (index 10) vs current slot (index 11).
+        // Trend: slot 11 (current, possibly incomplete) vs slot 10 (last full hour).
         $currentCount  = $data[11] ?? 0;
         $previousCount = $data[10] ?? 0;
 
@@ -210,7 +199,8 @@ class ClusterDataService
     }
 
     /**
-     * Build the merged per-duck history payload used by /status/history.
+     * Merged per-duck history payload used by /status/history.
+     * Business logic: joins messages + coords, computes last-seen status.
      *
      * @return Collection<string, array>
      */
