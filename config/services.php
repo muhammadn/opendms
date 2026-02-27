@@ -35,4 +35,23 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Central DMS (Hybrid Deployment)
+    |--------------------------------------------------------------------------
+    |
+    | Used only in hybrid store-and-forward mode. Leave CENTRAL_DMS_URL empty
+    | (or unset) for production deployments (this IS the central server) and
+    | for fully offline standalone field deployments.
+    |
+    | When set, ProcessMqttMessage will dispatch SyncRecordToCloud jobs that
+    | POST each incoming record to the central server's /api/ingest endpoint,
+    | retrying with exponential backoff until delivery is confirmed.
+    |
+    */
+    'central_dms' => [
+        'url'   => env('CENTRAL_DMS_URL', ''),
+        'token' => env('CENTRAL_DMS_TOKEN', ''),
+    ],
+
 ];

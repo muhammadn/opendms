@@ -126,7 +126,10 @@
         <h1 class="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
         @endif
         @if(request()->is('status'))
-        <h1 class="text-3xl font-bold tracking-tight text-white">Status</h1>
+        <div class="flex items-center justify-between">
+          <h1 class="text-3xl font-bold tracking-tight text-white">Status</h1>
+          @yield('page-actions')
+        </div>
         @endif
       </div>
     </header>

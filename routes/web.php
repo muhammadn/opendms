@@ -12,6 +12,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/status', [StatusController::class, 'index']);
     Route::post('/status/send', [StatusController::class, 'message']);
+    Route::post('/status/broadcast', [StatusController::class, 'broadcast']);
     Route::get('/status/history', [StatusController::class, 'history']);
 });
 

@@ -28,6 +28,28 @@ class StatusController extends Controller
         return response()->json($this->clusterDataService->buildHistoryResponse());
     }
 
+    public function broadcast(Request $request): JsonResponse
+    {
+        $message = $request->validate(['message' => 'required|string|max:200'])['message'];
+
+        $this->mqttService->sendCommand(
+            message: $message,
+            target:  'BROADCAST',
+            topic:   24,
+        );
+
+        ClusterData::create([
+            'duck_id'    => 'BROADCAST',
+            'topic'      => 'outbound',
+            'message_id' => uniqid('BC-'),
+            'payload'    => 'MSG,TEXT:' . $message,
+            'hops'       => 0,
+            'duck_type'  => 'operator',
+        ]);
+
+        return response()->json(['message' => 'Emergency broadcast sent successfully!']);
+    }
+
     public function message(Request $request): JsonResponse
     {
         $message = $request->input('message');

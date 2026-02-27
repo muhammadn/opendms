@@ -1,0 +1,28 @@
+[Unit]
+Description=OpenDMS Queue Worker (Store-and-Forward Sync)
+Documentation=https://github.com/muhammadn/opendms
+# Wait for network so the worker can attempt central DMS sync on startup.
+# In fully offline mode this still starts fine — the worker just retries later.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Update User and WorkingDirectory to match your deployment path.
+User=pi
+WorkingDirectory=/home/pi/opendms
+ExecStart=/usr/bin/php artisan queue:work \
+    --queue=sync \
+    --sleep=3 \
+    --tries=999 \
+    --timeout=30 \
+    --max-time=3600
+# Restart on any failure so the worker survives network drops, OOM kills, etc.
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=opendms-queue
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,13 @@
 <x-layouts::app :title="__('status')">
+@section('page-actions')
+  <button type="button" id="open-broadcast-btn"
+    class="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white ring-1 ring-inset ring-red-500 hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
+      <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L6.75 6.774a2.75 2.75 0 0 0-.596.892L5.18 9.817a.75.75 0 0 0 .985.985l2.15-.975a2.75 2.75 0 0 0 .892-.596l4.262-4.262a1.75 1.75 0 0 0 0-2.475ZM3.5 6.75A3.25 3.25 0 0 1 6.75 3.5h.75a.75.75 0 0 1 0 1.5h-.75A1.75 1.75 0 0 0 5 6.75v5.5c0 .966.784 1.75 1.75 1.75h5.5A1.75 1.75 0 0 0 14 12.25v-.75a.75.75 0 0 1 1.5 0v.75A3.25 3.25 0 0 1 12.25 15.5h-5.5A3.25 3.25 0 0 1 3.5 12.25v-5.5Z" />
+    </svg>
+    Emergency Broadcast
+  </button>
+@endsection
 @section('content')
 <style>
   @keyframes critical-glow {
@@ -37,6 +46,14 @@
   .gps-copy-coords:hover { color: #fff; background: rgba(255,255,255,0.1); }
 </style>
 <div class="flex flex-col">
+  <!-- Toast notification -->
+  <div id="broadcast-toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold shadow-lg transition-all duration-300 opacity-0 translate-y-2" role="alert" aria-live="assertive">
+    <svg id="broadcast-toast-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 shrink-0">
+      <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />
+    </svg>
+    <span id="broadcast-toast-msg"></span>
+  </div>
+
   <div class="mb-4 flex items-center justify-between">
     <h1 class="text-base font-semibold text-white">Duck Status</h1>
     <div class="flex items-center gap-2">
@@ -82,6 +99,7 @@
           </el-option>
         </el-options>
       </el-select>
+
       <div class="relative">
         <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4 text-gray-400">
@@ -235,7 +253,7 @@
   </div>
 
   <div class="mt-2 flex items-center gap-3">
-            <button type="submit" command="close" commandfor="msg-dialog-{{ $mamaduck->duck_id }}" class="duck-send-message inline-flex justify-center rounded-md bg-yellow-500 px-3 py-2 text-sm font-semibold text-white hover:bg-yellow-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500">Send Message</button>
+            <button type="submit" command="close" commandfor="msg-dialog-{{ $mamaduck->duck_id }}" class="duck-send-message w-full flex justify-center rounded-md bg-yellow-500 px-3 py-2 text-sm font-semibold text-white hover:bg-yellow-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500">Send Message</button>
             <span class="send-status text-xs"></span>
   </div>
 </form>
@@ -247,6 +265,56 @@
   </div>
 </div>
 @endforeach
+    <!-- Emergency Broadcast Modal -->
+    <el-dialog>
+      <dialog id="broadcast-dialog" aria-labelledby="broadcast-dialog-title" class="fixed inset-0 m-0 size-auto max-h-none max-w-none overflow-y-auto bg-transparent p-0 backdrop:bg-transparent">
+        <el-dialog-backdrop class="fixed inset-0 bg-gray-900/75 transition-opacity data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in"></el-dialog-backdrop>
+        <div tabindex="0" class="flex min-h-full items-end justify-center p-4 text-center focus:outline focus:outline-0 sm:items-center sm:p-0">
+          <el-dialog-panel class="relative transform overflow-hidden rounded-lg bg-gray-800 px-4 pb-4 pt-5 text-left shadow-xl outline outline-1 -outline-offset-1 outline-white/10 ring-2 ring-inset ring-red-600/60 transition-all data-[closed]:translate-y-4 data-[closed]:opacity-0 data-[enter]:duration-300 data-[leave]:duration-200 data-[enter]:ease-out data-[leave]:ease-in sm:my-8 sm:w-full sm:max-w-md sm:p-6 data-[closed]:sm:translate-y-0 data-[closed]:sm:scale-95">
+            <div class="flex items-center gap-3 border-b border-white/10 pb-4 mb-4">
+              <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-600/20 ring-1 ring-red-600/40">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-red-400">
+                  <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h2 id="broadcast-dialog-title" class="text-base font-semibold text-white">Emergency Broadcast</h2>
+                <p class="text-xs text-gray-400">Message will be sent to <span class="font-semibold text-red-400">all</span> connected devices (topic 24).</p>
+              </div>
+            </div>
+            <form id="broadcast-form">
+              @csrf
+              <div class="space-y-4">
+                <div>
+                  <label for="broadcast-message" class="block text-sm font-medium text-white">Broadcast message</label>
+                  <div class="mt-2">
+                    <textarea id="broadcast-message" name="message" rows="4" maxlength="200"
+                      placeholder="Enter your emergency message…"
+                      class="bc-textarea block w-full rounded-md bg-white/5 px-3 py-1.5 text-sm text-white outline outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-red-500"></textarea>
+                  </div>
+                  <p class="mt-1 flex justify-end text-xs text-gray-500"><span id="bc-char-count">0</span>&nbsp;/ 200</p>
+                </div>
+              </div>
+              <div class="mt-5 flex items-center gap-3">
+                <button type="submit" id="broadcast-send-btn"
+                  class="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
+                    <path d="M2.87 2.298a.75.75 0 0 0-.812.495l-2 6.5a.75.75 0 0 0 .926.926L4 9.32V10a.75.75 0 0 0 .28.585l4.5 3.5A.75.75 0 0 0 10 13.5V10.82l2.985-.897a.75.75 0 0 0 .516-.923L11.578 3.3a.75.75 0 0 0-.812-.495L8 3.6 5.234 3.3 2.87 2.298Z" />
+                  </svg>
+                  Send Broadcast
+                </button>
+                <button type="button" id="broadcast-cancel-btn"
+                  class="rounded-md bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
+                  Cancel
+                </button>
+                <span id="broadcast-send-status" class="ml-auto text-xs"></span>
+              </div>
+            </form>
+          </el-dialog-panel>
+        </div>
+      </dialog>
+    </el-dialog>
+
     <!-- Empty state -->
     <div id="duck-empty-state" class="col-span-full hidden py-16 text-center">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="mx-auto mb-3 size-10 text-gray-600">
@@ -306,6 +374,114 @@
 
   document.getElementById('duck-search').addEventListener('input', applyFilters);
   document.getElementById('urgency-filter').addEventListener('change', applyFilters);
+
+  // ── Emergency Broadcast ──────────────────────────────────────────────────
+  (function () {
+    var dialog      = document.getElementById('broadcast-dialog');
+    var openBtn     = document.getElementById('open-broadcast-btn');
+    var cancelBtn   = document.getElementById('broadcast-cancel-btn');
+    var form        = document.getElementById('broadcast-form');
+    var textarea    = document.getElementById('broadcast-message');
+    var charCount   = document.getElementById('bc-char-count');
+    var sendBtn     = document.getElementById('broadcast-send-btn');
+    var statusSpan  = document.getElementById('broadcast-send-status');
+    var toast       = document.getElementById('broadcast-toast');
+    var toastMsg    = document.getElementById('broadcast-toast-msg');
+    var toastIcon   = document.getElementById('broadcast-toast-icon');
+    var toastTimer  = null;
+
+    function showToast(message, isError) {
+      clearTimeout(toastTimer);
+      toastMsg.textContent = message;
+      if (isError) {
+        toast.className = toast.className.replace(/bg-\S+/g, '').trim();
+        toast.classList.add('bg-red-700', 'text-white');
+        toastIcon.classList.remove('text-green-300');
+        toastIcon.classList.add('text-red-300');
+      } else {
+        toast.className = toast.className.replace(/bg-\S+/g, '').trim();
+        toast.classList.add('bg-green-700', 'text-white');
+        toastIcon.classList.remove('text-red-300');
+        toastIcon.classList.add('text-green-300');
+      }
+      toast.classList.remove('opacity-0', 'translate-y-2');
+      toast.classList.add('opacity-100', 'translate-y-0', 'pointer-events-auto');
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('opacity-100', 'translate-y-0', 'pointer-events-auto');
+        toast.classList.add('opacity-0', 'translate-y-2');
+      }, 4000);
+    }
+
+    function openDialog() {
+      textarea.value = '';
+      charCount.textContent = '0';
+      statusSpan.textContent = '';
+      sendBtn.disabled = false;
+      dialog.showModal();
+    }
+
+    function closeDialog() {
+      dialog.close();
+    }
+
+    openBtn.addEventListener('click', openDialog);
+    cancelBtn.addEventListener('click', closeDialog);
+    dialog.addEventListener('click', function (e) {
+      if (e.target === dialog) closeDialog();
+    });
+
+    textarea.addEventListener('input', function () {
+      charCount.textContent = textarea.value.length;
+      charCount.style.color = textarea.value.length >= 200 ? '#f87171' : '';
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var message = textarea.value.trim();
+      if (!message) {
+        statusSpan.textContent = 'Message cannot be empty.';
+        statusSpan.style.color = '#f87171';
+        return;
+      }
+      sendBtn.disabled = true;
+      statusSpan.textContent = 'Sending…';
+      statusSpan.style.color = '#9ca3af';
+
+      var csrfMeta  = document.querySelector('meta[name="csrf-token"]');
+      var csrfToken = csrfMeta
+        ? csrfMeta.getAttribute('content')
+        : document.querySelector('input[name="_token"]').value;
+
+      fetch('/status/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({ message: message }),
+      })
+      .then(function (res) {
+        return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+      })
+      .then(function (result) {
+        if (result.ok) {
+          closeDialog();
+          showToast('\u2705 ' + result.data.message, false);
+        } else {
+          var errMsg = result.data.message || result.data.errors?.message?.[0] || 'Failed to send broadcast.';
+          statusSpan.textContent = errMsg;
+          statusSpan.style.color = '#f87171';
+          sendBtn.disabled = false;
+        }
+      })
+      .catch(function () {
+        statusSpan.textContent = 'Network error. Please try again.';
+        statusSpan.style.color = '#f87171';
+        sendBtn.disabled = false;
+      });
+    });
+  })();
 
   // Character counter for message textareas
   document.querySelectorAll('.msg-textarea').forEach(function (textarea) {
