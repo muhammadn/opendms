@@ -7,9 +7,9 @@
       <h5 class="text-2xl font-semibold text-heading text-white">{{ Number::forHumans($count) }}</h5>
       <p class="text-body text-gray-400">Messages today</p>
     </div>
-    <div class="flex items-center px-2.5 py-0.5 font-medium text-fg-success text-center">
-      <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v13m0-13 4 4m-4-4-4 4"/></svg>
-      12%
+    <div id="chart-trend" class="flex items-center px-2.5 py-0.5 font-medium text-gray-400 text-center">
+      <svg class="w-5 h-5 animate-pulse" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v13m0-13 4 4m-4-4-4 4"/></svg>
+      <span class="ml-1">…</span>
     </div>
   </div>
   <div id="area-chart"></div>
@@ -67,15 +67,15 @@
           <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
             <div class="overflow-hidden rounded-lg bg-gray-800/75 px-4 py-5 shadow ring-1 ring-inset ring-white/10 sm:p-6">
               <dt class="truncate text-sm font-medium text-gray-400">PapaDucks</dt>
-              <dd class="mt-1 text-3xl font-semibold tracking-tight text-white">1</dd>
+              <dd id="stat-papaducks" class="mt-1 text-3xl font-semibold tracking-tight text-white">{{ $papaducks }}</dd>
             </div>
             <div class="overflow-hidden rounded-lg bg-gray-800/75 px-4 py-5 shadow ring-1 ring-inset ring-white/10 sm:p-6">
               <dt class="truncate text-sm font-medium text-gray-400">MamaDucks</dt>
-              <dd class="mt-1 text-3xl font-semibold tracking-tight text-white">{{ $mamaducks }}</dd>
+              <dd id="stat-mamaducks" class="mt-1 text-3xl font-semibold tracking-tight text-white">{{ $mamaducks }}</dd>
             </div>
             <div class="overflow-hidden rounded-lg bg-gray-800/75 px-4 py-5 shadow ring-1 ring-inset ring-white/10 sm:p-6">
               <dt class="truncate text-sm font-medium text-gray-400">Total Messages</dt>
-              <dd id="total-messages" class="mt-1 text-3xl font-semibold tracking-tight text-white">{{ $count }}</dd>
+              <dd id="stat-total" class="mt-1 text-3xl font-semibold tracking-tight text-white">{{ $count }}</dd>
             </div>
           </dl>
         </div>

@@ -10,6 +10,9 @@
 @vite('resources/css/app.css')
 @vite('resources/js/app.js')
 <html class="h-full bg-gray-900">
+<head>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
 <body class="h-full">
 <script src="https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1" type="module"></script>
 <script src="https://code.jquery.com/jquery-3.0.0.js"></script>
@@ -148,91 +151,94 @@
 </body>
 
 <script type="module">
-var appMapData = {{ Js::from($clusters) }};
+const chartEl = document.getElementById("area-chart");
 
-console.log(Object.keys(appMapData));
-
-// Get the CSS variable --color-brand and convert it to hex for ApexCharts
-const getBrandColor = () => {
-  // Get the computed style of the document's root element
+if (chartEl && typeof ApexCharts !== 'undefined') {
   const computedStyle = getComputedStyle(document.documentElement);
-  
-  // Get the value of the --color-brand CSS variable
-  return computedStyle.getPropertyValue('--color-fg-brand').trim() || "#1447E6";
-};
+  const brandColor = computedStyle.getPropertyValue('--color-fg-brand').trim() || "#1447E6";
 
-const brandColor = getBrandColor();
+  const options = {
+    chart: {
+      height: "100%",
+      maxWidth: "100%",
+      type: "area",
+      fontFamily: "Inter, sans-serif",
+      dropShadow: { enabled: false },
+      toolbar: { show: false },
+      animations: { enabled: true },
+    },
+    tooltip: {
+      enabled: true,
+      x: { show: true },
+    },
+    fill: {
+      type: "gradient",
+      gradient: {
+        opacityFrom: 0.55,
+        opacityTo: 0,
+        shade: brandColor,
+        gradientToColors: [brandColor],
+      },
+    },
+    dataLabels: { enabled: false },
+    stroke: { width: 6 },
+    grid: {
+      show: false,
+      strokeDashArray: 4,
+      padding: { left: 2, right: 2, top: 0 },
+    },
+    series: [{ name: "Messages", data: [], color: brandColor }],
+    xaxis: {
+      categories: [],
+      labels: {
+        show: true,
+        rotate: 0,
+        style: { colors: '#9ca3af', fontSize: '11px' },
+        formatter: (val) => val,
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    yaxis: { show: false },
+    noData: {
+      text: 'Loading…',
+      style: { color: '#9ca3af', fontSize: '14px' },
+    },
+  };
 
-const options = {
-  chart: {
-    height: "100%",
-    maxWidth: "100%",
-    type: "area",
-    fontFamily: "Inter, sans-serif",
-    dropShadow: {
-      enabled: false,
-    },
-    toolbar: {
-      show: false,
-    },
-  },
-  tooltip: {
-    enabled: true,
-    x: {
-      show: false,
-    },
-  },
-  fill: {
-    type: "gradient",
-    gradient: {
-      opacityFrom: 0.55,
-      opacityTo: 0,
-      shade: brandColor,
-      gradientToColors: [brandColor],
-    },
-  },
-  dataLabels: {
-    enabled: false,
-  },
-  stroke: {
-    width: 6,
-  },
-  grid: {
-    show: false,
-    strokeDashArray: 4,
-    padding: {
-      left: 2,
-      right: 2,
-      top: 0
-    },
-  },
-  series: [
-    {
-      name: "Messages",
-      data: Object.values(appMapData),
-      color: brandColor,
-    },
-  ],
-  xaxis: {
-    categories: Object.keys(appMapData),
-    labels: {
-      show: false,
-    },
-    axisBorder: {
-      show: false,
-    },
-    axisTicks: {
-      show: false,
-    },
-  },
-  yaxis: {
-    show: false,
-  },
-}
-
-if (document.getElementById("area-chart") && typeof ApexCharts !== 'undefined') {
-  const chart = new ApexCharts(document.getElementById("area-chart"), options);
+  const chart = new ApexCharts(chartEl, options);
   chart.render();
+
+  const upArrow   = `<svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v13m0-13 4 4m-4-4-4 4"/></svg>`;
+  const downArrow = `<svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V6m0 13-4-4m4 4 4-4"/></svg>`;
+
+  function updateTrend(trend) {
+    const trendEl = document.getElementById('chart-trend');
+    if (!trendEl || !trend) return;
+    const isUp = trend.direction === 'up';
+    trendEl.className = `flex items-center px-2.5 py-0.5 font-medium text-center ${isUp ? 'text-red-400' : 'text-fg-success'}`;
+    trendEl.innerHTML  = (isUp ? upArrow : downArrow) + `<span class="ml-1">${trend.percentage}%</span>`;
+    trendEl.title = `Current hour: ${trend.current_hour} msgs · Previous hour: ${trend.previous_hour} msgs`;
+  }
+
+  async function loadHourlyData() {
+    try {
+      const response = await fetch('/dashboard/hourly');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      chart.updateOptions({
+        series: [{ name: "Messages", data: json.data, color: brandColor }],
+        xaxis: { categories: json.labels },
+        noData: { text: 'No messages today' },
+      });
+      updateTrend(json.trend);
+    } catch (e) {
+      console.error('Failed to load hourly chart data:', e);
+    }
+  }
+
+  loadHourlyData();
+  setInterval(loadHourlyData, 60_000);
 }
 </script>
 </html>

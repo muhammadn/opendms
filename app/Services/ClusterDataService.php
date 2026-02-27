@@ -16,19 +16,25 @@ class ClusterDataService
     }
 
     /**
-     * Return the total message count and distinct MamaDuck count
-     * for the dashboard summary cards.
+     * Return total message count plus distinct PapaDuck and MamaDuck counts
+     * in a single database round-trip using standard conditional aggregates
+     * (compatible with SQLite, MySQL, and PostgreSQL).
      *
-     * @return array{count: int, mamaducks: int}
+     * @return array{count: int, papaducks: int, mamaducks: int}
      */
     public function getDashboardStats(): array
     {
-        $count     = ClusterData::count();
-        $mamaducks = ClusterData::where('duck_type', 2)
-            ->distinct('duck_id')
-            ->count();
+        $row = ClusterData::selectRaw("
+            COUNT(*) as total,
+            COUNT(DISTINCT CASE WHEN duck_type = 1 THEN duck_id END) as papaducks,
+            COUNT(DISTINCT CASE WHEN duck_type = 2 THEN duck_id END) as mamaducks
+        ")->first();
 
-        return compact('count', 'mamaducks');
+        return [
+            'count'     => (int) $row->total,
+            'papaducks' => (int) $row->papaducks,
+            'mamaducks' => (int) $row->mamaducks,
+        ];
     }
 
     /**
@@ -147,6 +153,60 @@ class ClusterDataService
                     'lng'        => $lng,
                 ];
             });
+    }
+
+    /**
+     * Return message counts for each of the past 12 hours (can overlap into
+     * yesterday), plus a trend comparing the current hour to the previous one.
+     *
+     * Uses only Eloquent + PHP-level grouping so the query works with any
+     * database driver (SQLite, MySQL, PostgreSQL, etc.).
+     *
+     * @return array{labels: string[], data: int[], trend: array{direction: string, percentage: float, current_hour: int, previous_hour: int}}
+     */
+    public function getHourlyMessageCounts(): array
+    {
+        // Build the 12 hourly slots ending at the current (incomplete) hour.
+        $windowStart = now()->subHours(11)->startOfHour();
+        $windowEnd   = now()->endOfHour();
+
+        // Fetch only created_at for the window — Eloquent casts to Carbon automatically.
+        $records = ClusterData::where('created_at', '>=', $windowStart)
+            ->where('created_at', '<=', $windowEnd)
+            ->get(['created_at']);
+
+        $labels = [];
+        $data   = [];
+
+        for ($i = 0; $i < 12; $i++) {
+            $slotStart = $windowStart->copy()->addHours($i);
+            $slotEnd   = $slotStart->copy()->endOfHour();
+
+            $labels[] = $slotStart->format('H:i');
+            $data[]   = $records->filter(
+                fn($r) => $r->created_at->between($slotStart, $slotEnd)
+            )->count();
+        }
+
+        // Trend: last complete slot (index 10) vs current slot (index 11).
+        $currentCount  = $data[11] ?? 0;
+        $previousCount = $data[10] ?? 0;
+
+        $direction  = $currentCount >= $previousCount ? 'up' : 'down';
+        $percentage = $previousCount > 0
+            ? round(abs(($currentCount - $previousCount) / $previousCount) * 100, 1)
+            : ($currentCount > 0 ? 100.0 : 0.0);
+
+        return [
+            'labels' => $labels,
+            'data'   => $data,
+            'trend'  => [
+                'direction'     => $direction,
+                'percentage'    => $percentage,
+                'current_hour'  => $currentCount,
+                'previous_hour' => $previousCount,
+            ],
+        ];
     }
 
     /**

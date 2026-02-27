@@ -1,4 +1,22 @@
 //import ApexCharts from 'apexcharts'
+
+// Configure jQuery so every AJAX request:
+//  - sends Accept: application/json  → Laravel returns 401 JSON (not a login redirect)
+//  - sends the CSRF token for mutating requests
+$.ajaxSetup({
+  headers: {
+    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+    'Accept': 'application/json',
+  },
+});
+
+// Global handler: redirect to /login on any 401 (session expired / not authenticated)
+$(document).ajaxError(function(event, jqXHR) {
+  if (jqXHR.status === 401) {
+    window.location.href = '/login';
+  }
+});
+
 $(document).ready(function() {
     // Initialize the DataTable
     var table = $('#ducks-table').DataTable({ 
@@ -31,6 +49,7 @@ $(document).ready(function() {
                 }
 	      },
 	      { data: "created_at", defaultContent: '', className: 'hidden border-t border-white/10 px-3 py-3.5 text-sm text-gray-400 lg:table-cell dt-type-date sorting_1', render: function(data, type, row) {
+                  if (type === 'sort' || type === 'type') return data;
                   return new Date(data).toLocaleString(navigator.language, {"12hour": false});
                 }
 	      },
@@ -218,7 +237,8 @@ $(document).ready(function() {
                                urgencyRow(payload) +
                                '<p class="mt-0.5 text-xs">' + duckLink + '</p>';
                   } else {
-                    bodyHtml = '<p class="text-sm text-gray-400 break-words">' + payloadHtml + ' ' + duckLink + '</p>';
+                    bodyHtml = '<p class="text-sm text-gray-400 break-words">' + payloadHtml + '</p>' +
+                               '<p class="mt-0.5 text-xs">' + duckLink + '</p>';
                   }
 
 	          let templateData = '<li><div class="relative pb-8"><div class="relative flex space-x-3"><div><img src="/images/logo.png" alt="Logo" class="size-10"></div><div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5"><div class="min-w-0 flex-1">' + bodyHtml + '</div><div class="whitespace-nowrap text-right text-sm text-gray-400 shrink-0"><time datetime="2020-09-22">' + time24h + '</time></div></div></div></div></li>';
@@ -230,8 +250,6 @@ $(document).ready(function() {
 
           let feed = JSON.stringify(data.data);
           localStorage.setItem('feed', feed);
-
-	  $('div dd#total-messages').html(data.totalCount);
         },
         error: function(jqXHR, textStatus, errorThrown) {
           console.error("Error fetching data: " + textStatus, errorThrown);
@@ -239,11 +257,31 @@ $(document).ready(function() {
       })
     }
 
-    // Poll every 3000 milliseconds (3 seconds)
+    // Poll the feed timeline every 5 seconds
     setInterval(pollData, 5000);
 
     // Initial call to load data when the page loads
     pollData();
+
+    // Poll the summary stats cards (total, papaducks, mamaducks) as one request
+    function pollStats() {
+      $.ajax({
+        url: '/dashboard/stats',
+        method: 'GET',
+        dataType: 'json',
+        success: function(data) {
+          $('#stat-total').text(data.count);
+          $('#stat-papaducks').text(data.papaducks);
+          $('#stat-mamaducks').text(data.mamaducks);
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+          console.error('Error fetching stats: ' + textStatus, errorThrown);
+        }
+      });
+    }
+
+    setInterval(pollStats, 10000);
+    pollStats();
 
     // Status page: poll /status/history and refresh each duck's message box (newest first)
     function formatHistoryMessage(msg, isRead) {
